@@ -1,0 +1,50 @@
+on: [push]
+
+jobs:
+  build-test-and-package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: #some-maven-action
+      - run: mvn clean install
+
+  build-image-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@master
+
+      - uses: Azure/docker-login@v1
+        with:
+          login-server: dockerhub.com
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      - run: |
+          docker build . -t jpdecastro/cicd-demo:${{ github.sha }}
+          docker push jpdecastro/cicd-demo:${{ github.sha }}
+
+      - uses: azure/setup-kubectl@v2.0
+
+      # Set the target AKS cluster.
+      - uses: Azure/aks-set-context@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          cluster-name: akscluster-sq4l-1
+          resource-group: rg-accelerator-aks
+
+      - uses: Azure/k8s-create-secret@v1.1
+        with:
+          container-registry-url: jpdecastro
+          container-registry-username: ${{ secrets.REGISTRY_USERNAME }}
+          container-registry-password: ${{ secrets.REGISTRY_PASSWORD }}
+          secret-name: cicd-demo-secret
+
+      - uses: Azure/k8s-deploy@v3.1
+        with:
+          action: deploy
+          manifests: |
+            manifests/deployment.yml
+            manifests/service.yml
+          images: |
+            jpdecastro/cicd-demo:${{ github.sha }}
+          imagepullsecrets: |
+            cicd-demo-secret
