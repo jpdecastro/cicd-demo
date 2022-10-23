@@ -18,7 +18,7 @@ jobs:
       - name: 'Maven Package'
         run: mvn --batch-mode --update-snapshots package
 
-      - name: 'Az Docker Login'
+#      - name: 'Az Docker Login'
 #        uses: azure/docker-login@v1
 #        with:
 #          login-server: 'index.docker.io'
