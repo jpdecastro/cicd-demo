@@ -2,11 +2,19 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
-name: CI/CD
+name: CI/CD Workflow
 jobs:
   build-test-and-package:
     runs-on: ubuntu-latest
+    env:
+      DOCKER_REPOSITORY: jpdecastro # name of Docker Hub ID
+      IMAGE_NAME: cicd-demo
+      IMAGE_TAG: ${{ github.sha }}
+      CLUSTER_NAME: akscluster-nrmn-1
+      RESOURCE_GROUP: rg-accelerator-aks
+
     steps:
       - uses: actions/checkout@v2
 
@@ -18,48 +26,41 @@ jobs:
       - name: 'Maven Package'
         run: mvn --batch-mode --update-snapshots package
 
-#      - name: 'Az Docker Login'
-#        uses: azure/docker-login@v1
-#        with:
-#          login-server: 'index.docker.io'
-#          username: '${{ secrets.REGISTRY_USERNAME }}'
-#          password: '${{ secrets.REGISTRY_PASSWORD }}'
-#      - run: |
-#          docker build . -t jpdecastro/cicd-demo:${{ github.sha }}
-#          docker push jpdecastro/cicd-demo:${{ github.sha }}
+      - name: 'Build Docker Image'
+        run:
+          docker build . --tag $DOCKER_REPOSITORY/$IMAGE_NAME:$IMAGE_TAG
 
-      - name: 'Az CLI login'
-        uses: azure/login@v1
+      - name: 'Login to Docker Hub'
+        run:
+          echo "${{ secrets.REGISTRY_PASSWORD }}" | docker login -u ${{ secrets.REGISTRY_USERNAME }} --password-stdin
+
+      - name: 'Push Image to Docker Hub'
+        run:
+          docker push $DOCKER_REPOSITORY/$IMAGE_NAME:$IMAGE_TAG
+
+      - uses: cschleiden/replace-tokens@v1
         with:
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      - name: 'Run Az ClI Command'
-        run: |
-          az aks show --resource-group rg-accelerator-aks --name akscluster-nrmn-1
+          files: '["manifests/*.yaml"]'
+          tokenPrefix: '__' # optional, default is #{
+          tokenSuffix: '__' # optional, default is }#
+        env:
+          DOCKER_REPOSITORY: ${{ env.DOCKER_REPOSITORY }}
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
+          IMAGE_TAG: ${{ env.IMAGE_TAG }}
+        run:
+          echo manifests/deployment.yaml
 
-      - uses: azure/setup-kubectl@v2.0
-
+      # Set the target AKS cluster.
       - uses: Azure/aks-set-context@v1
         with:
-          method: service-account
-          k8s-url: https://acldys-dae32c32.hcp.westeurope.azmk8s.io:443
-          k8s-secret: default-token-hkx9v
-        id: setcontext
-
-      - uses: Azure/k8s-create-secret@v1.1
-        with:
-          container-registry-url: index.docker.io
-          container-registry-username: ${{ secrets.REGISTRY_USERNAME }}
-          container-registry-password: ${{ secrets.REGISTRY_PASSWORD }}
-          secret-name: docker-secret
+          creds: ${{ secrets.AZURE_CREDENTIALS }} # requires service-principle has been created in Azure
+          cluster-name: ${{ env.CLUSTER_NAME }}
+          resource-group: ${{ env.RESOURCE_GROUP }}
 
       - uses: Azure/k8s-deploy@v3.1
         with:
           action: deploy #options: deploy, promote, reject
           manifests: |
-            manifests/deployment.yml
-          strategy: basic #options: basic, canary, blue-green
+            manifests/deployment.yaml
           images: |
-            jpdecastro/cicd-demo:${{ github.sha }}
-          imagepullsecrets: |
-            docker-secret
+            ${{ env.DOCKER_REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}

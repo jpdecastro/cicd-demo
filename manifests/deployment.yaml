@@ -16,6 +16,6 @@ spec:
     spec:
       containers:
         - name: cicd
-          image: jpdecastro/cicd-demo
+          image: __DOCKER_REPOSITORY__/__IMAGE_NAME__:__IMAGE_TAG__
           ports:
             - containerPort: 8080
