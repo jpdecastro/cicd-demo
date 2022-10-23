@@ -50,7 +50,7 @@ jobs:
 
       - name: 'Print Altered Deployment YAML'
         run:
-          echo manifests/deployment.yaml
+          cat manifests/deployment.yaml | grep image
 
       # Set the target AKS cluster.
       - uses: Azure/aks-set-context@v1
