@@ -19,14 +19,14 @@ jobs:
         run: mvn --batch-mode --update-snapshots package
 
       - name: 'Az Docker Login'
-        uses: azure/docker-login@v1
-        with:
-          login-server: 'index.docker.io'
-          username: '${{ secrets.REGISTRY_USERNAME }}'
-          password: '${{ secrets.REGISTRY_PASSWORD }}'
-      - run: |
-          docker build . -t jpdecastro/cicd-demo:${{ github.sha }}
-          docker push jpdecastro/cicd-demo:${{ github.sha }}
+#        uses: azure/docker-login@v1
+#        with:
+#          login-server: 'index.docker.io'
+#          username: '${{ secrets.REGISTRY_USERNAME }}'
+#          password: '${{ secrets.REGISTRY_PASSWORD }}'
+#      - run: |
+#          docker build . -t jpdecastro/cicd-demo:${{ github.sha }}
+#          docker push jpdecastro/cicd-demo:${{ github.sha }}
 
       - name: 'Az CLI login'
         uses: azure/login@v1
